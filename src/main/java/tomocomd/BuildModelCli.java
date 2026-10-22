@@ -22,15 +22,17 @@ public final class BuildModelCli {
         Instances trainingData = readTrainingData(commandLine);
         String modelName = commandLine.getOptionValue("m");
 
-        LOGGER.info(
-                "Training data loaded for model '{}': {} instances, "
-                        + "{} attributes, endpoint '{}'",
-                modelName,
-                trainingData.numInstances(),
-                trainingData.numAttributes(),
-                trainingData.classAttribute().name());
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(
+                    "Training data loaded for model '{}': {} instances, "
+                            + "{} attributes, endpoint '{}'",
+                    modelName,
+                    trainingData.numInstances(),
+                    trainingData.numAttributes(),
+                    trainingData.classAttribute().name());
 
-        ModelBuilder.buildAndSaveModel(modelName, trainingData);
+            ModelBuilder.buildAndSaveModel(modelName, trainingData);
+        }
     }
 
     public static void validateCommands(CommandLine commandLine) {
@@ -151,10 +153,12 @@ public final class BuildModelCli {
         String endpointName = commandLine.getOptionValue("E");
         if (endpointName == null) {
             instances.setClassIndex(0);
-            LOGGER.warn(
-                    "Endpoint name not provided; using the first column: '{}'",
-                    instances.classAttribute().name());
-            return;
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn(
+                        "Endpoint name not provided; using the first column: '{}'",
+                        instances.classAttribute().name());
+                return;
+            }
         }
 
         if (instances.attribute(endpointName) == null) {
