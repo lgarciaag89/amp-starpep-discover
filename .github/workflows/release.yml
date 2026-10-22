@@ -1,0 +1,120 @@
+name: Build and release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: read
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Calculate next patch version
+        id: version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+          import subprocess
+
+          content = Path("pom.xml").read_text(encoding="utf-8")
+          match = re.search(r"(?m)^(\s*<version>)([^<]+)(</version>)", content)
+          if match is None:
+              raise SystemExit("Could not find the project version in pom.xml")
+
+          tag_pattern = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
+          tags = subprocess.run(
+              ["git", "tag", "--list", "v[0-9]*"],
+              check=True, capture_output=True, text=True
+          ).stdout.splitlines()
+          released_versions = [
+              tuple(map(int, tag_match.groups()))
+              for tag in tags
+              if (tag_match := tag_pattern.fullmatch(tag))
+          ]
+
+          if released_versions:
+              major, minor, patch = max(released_versions)
+          else:
+              base_version = re.fullmatch(
+                  r"(\d+)\.(\d+)(?:\.(\d+))?(?:-SNAPSHOT)?", match.group(2)
+              )
+              if base_version is None:
+                  raise SystemExit(
+                      "Unsupported project version; use MAJOR.MINOR[.PATCH][-SNAPSHOT]"
+                  )
+              major, minor, patch = base_version.groups()
+              major, minor, patch = int(major), int(minor), int(patch or 0)
+
+          next_version = f"{major}.{minor}.{patch + 1}"
+          content = (
+              content[:match.start(2)]
+              + next_version
+              + content[match.end(2):]
+          )
+          Path("pom.xml").write_text(content, encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={next_version}\n")
+          print(f"Release version: {next_version}")
+          PY
+
+      - name: Configure GitHub Packages credentials
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.m2"
+          cat > "$HOME/.m2/settings.xml" <<'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>startpep-md-github</id>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.GITHUB_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Build and verify
+        run: mvn --batch-mode clean verify
+
+      - name: Push release tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push origin "refs/tags/v${VERSION}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v${VERSION}" \
+            "target/amp-starpep-discover.jar#amp-starpep-discover-${VERSION}.jar" \
+            --title "AMP StarPep Discover v${VERSION}" \
+            --generate-notes
