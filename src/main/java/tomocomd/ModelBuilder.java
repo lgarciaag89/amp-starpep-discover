@@ -26,6 +26,7 @@ public final class ModelBuilder {
 
     private static final Logger LOGGER =
             LogManager.getLogger(ModelBuilder.class);
+    private static final String PREDICTION_LABEL = "Prediction";
 
     private ModelBuilder() {
     }
@@ -129,26 +130,6 @@ public final class ModelBuilder {
     }
 
     /**
-     * Loads a saved model and its training header, calculates the required
-     * descriptors for a FASTA file, and returns one readable prediction per
-     * peptide.
-     */
-    public static String[] predictFasta(
-            Path modelPath,
-            Path fastaFile) throws Exception {
-        Instances results =
-                predictFastaWithIds(modelPath, fastaFile);
-        String[] predictions = new String[results.numInstances()];
-        int predictionIndex =
-                results.attribute("Prediction").index();
-        for (int i = 0; i < predictions.length; i++) {
-            predictions[i] =
-                    results.instance(i).stringValue(predictionIndex);
-        }
-        return predictions;
-    }
-
-    /**
      * Predicts a FASTA file and returns one row per prediction with its
      * peptide ID, keeping the identifier attached to its descriptor row.
      */
@@ -170,10 +151,10 @@ public final class ModelBuilder {
                             "Unsupported non-numeric descriptor: "
                                     + header.attribute(i).name());
                 }
-                if ("Prediction".equals(header.attribute(i).name())) {
+                if (PREDICTION_LABEL.equals(header.attribute(i).name())) {
                     throw new IllegalArgumentException(
                             "Model schema uses reserved attribute name: "
-                                    + "Prediction");
+                                    + PREDICTION_LABEL);
                 }
                 descriptors.add(header.attribute(i).name());
             }
@@ -196,7 +177,7 @@ public final class ModelBuilder {
         Instances output = new Instances(
                 calculatedDescriptors, predictions.length);
         output.insertAttributeAt(
-                new Attribute("Prediction", (List<String>) null),
+                new Attribute(PREDICTION_LABEL, (List<String>) null),
                 output.numAttributes());
         int predictionAttributeIndex = output.numAttributes() - 1;
         for (int i = 0; i < predictions.length; i++) {
@@ -223,13 +204,12 @@ public final class ModelBuilder {
         }
 
         Object loadedObject = SerializationHelper.read(modelPath.toString());
-        if (!(loadedObject instanceof Model)) {
+        if (!(loadedObject instanceof Model model)) {
             throw new IllegalArgumentException(
                     "The file does not contain a StarPep model bundle: "
                             + modelPath);
         }
 
-        Model model = (Model) loadedObject;
         model.validate();
         return model;
     }
@@ -255,14 +235,13 @@ public final class ModelBuilder {
         for (int i = 0; i < calculatedDescriptors.numAttributes(); i++) {
             Attribute attribute = calculatedDescriptors.attribute(i);
             if (!StarPepDescriptorExecutor.PEPTIDE_ID_ATTRIBUTE
-                    .equals(attribute.name())) {
-                if (!attribute.isNumeric()
-                        || !expectedNames.remove(attribute.name())) {
+                    .equals(attribute.name()) && (!attribute.isNumeric()
+                        || !expectedNames.remove(attribute.name()))) {
                     throw new IllegalArgumentException(
                             "Unexpected or invalid calculated descriptor: "
                                     + attribute.name());
                 }
-            }
+
         }
         if (!expectedNames.isEmpty()) {
             throw new IllegalArgumentException(
