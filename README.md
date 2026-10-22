@@ -64,9 +64,10 @@ increments the patch number from the latest `v<version>` tag (or from the
 version in `pom.xml` for the first release), builds the standalone JAR, creates
 a new `v<version>` tag, and publishes a GitHub Release with the versioned JAR
 attached. The version in `pom.xml` on `main` is not changed. The workflow
-authenticates to GitHub Packages using the built-in `GITHUB_TOKEN`. Make sure
-the workflow repository has read access to the `starpep-md` package in its
-GitHub Packages settings.
+authenticates to GitHub Packages using the repository Actions secrets
+`USER_NAME` and `ACCESS_TOKEN`. Set them under **Settings → Secrets and
+variables → Actions**. `ACCESS_TOKEN` must be a classic personal access token
+with `read:packages` permission and access to the `starpep-md` package.
 
 ## Train a model from FASTA
 
