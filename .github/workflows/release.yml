@@ -105,6 +105,9 @@ jobs:
 
       - name: Build and verify
         run: mvn --batch-mode clean verify
+        env:
+          GITHUB_ACTOR: ${{ secrets.USER_NAME }}
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
       - name: Push release tag
         env:
