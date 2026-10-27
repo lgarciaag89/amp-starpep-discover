@@ -6,7 +6,6 @@ public class AExOpDCSException extends RuntimeException {
 
     @Serial
     private static final long serialVersionUID = 1L;
-    private final ExceptionType type;
 
 
     public AExOpDCSException(
@@ -14,12 +13,12 @@ public class AExOpDCSException extends RuntimeException {
             Throwable cause,
             String message) {
         super(type.formatMessage(message), cause);
-        this.type = type;
     }
 
     public enum ExceptionType {
         CSV_FILE_WRITING_EXCEPTION("Error writing csv file"),
-        CSV_FILE_LOADING_EXCEPTION("Error reading csv file");
+        CSV_FILE_LOADING_EXCEPTION("Error reading csv file"),
+        EXECUTION_ERROR("Error during execution");
 
         private final String message;
 

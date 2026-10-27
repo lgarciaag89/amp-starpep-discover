@@ -150,7 +150,7 @@ public final class CSVManage {
         return attribute.isNominal() || attribute.isString();
     }
 
-    private static boolean startsWithFormula(String value) {
+    public static boolean startsWithFormula(String value) {
         int index = 0;
         while (index < value.length()) {
             char character = value.charAt(index);
