@@ -37,8 +37,9 @@ mvn clean package
 The standalone application JAR is created at
 `target/amp-starpep-discover.jar`. It includes the runtime
 dependencies and requires only Java 21 or later on the machine where it runs.
-The application has two entry points: `tomocomd.BuildModel` and
-`tomocomd.PredictPeptidesCli`.
+The primary entry points are `tomocomd.BuildModel` for training and
+`tomocomd.PredictPeptidesCli` for prediction. Prediction uses the parallel,
+block-wise implementation.
 
 In PowerShell, set the classpath as follows:
 
@@ -106,7 +107,7 @@ The serialized model includes the classifier and attribute schema. Check the
 training log for the path of the generated file.
 
 The `--model` argument selects the algorithm configured in
-`tomocomd.classifiers.BuildClassifier`. Supported algorithms are
+`tomocomd.BuildClassifier`. Supported algorithms are
 `RandomForest` (`rf`), `RandomCommittee` (`rc`), `IBk` (`knn`), `BayesNet`
 (`bn`), `SMO-PUK` (`smo`), `SMO-Poly`, `LinearRegression` (`lr`),
 `SMOreg-PUK` (`svm`), `SMOreg-Poly`, `AdditiveRegressionRF` (`ar-rf`),
@@ -135,5 +136,22 @@ sh scripts/predict.sh \
   --output data/predictions.csv
 ```
 
-If `--output` is omitted, `<fasta-name>_predictions.csv` is created next to the
-FASTA file. An existing output CSV is replaced.
+The `predict.bat` and `predict.sh` scripts both launch the same
+`tomocomd.PredictPeptidesCli`. If `--output` is omitted,
+`<fasta-name>_predictions.csv` is created next to the FASTA file. An existing
+output file is replaced; do not set it to the FASTA path.
+
+Prediction reads and processes the FASTA in blocks to bound memory. Descriptor
+calculation runs in parallel using the available processors by default, while
+classification is synchronized on the model. Use `--threads` to set the
+parallel worker count and `--block-size` to set the number of peptides
+processed per block (default: 10,000). For example:
+
+```powershell
+.\scripts\predict.bat `
+  --model $model `
+  --fasta data\unknown-peptides.fasta `
+  --output data\predictions.csv `
+  --threads 8 `
+  --block-size 5000
+```
